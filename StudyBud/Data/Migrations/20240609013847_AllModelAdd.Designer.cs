@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudyBud.Data;
 
@@ -10,9 +11,11 @@ using StudyBud.Data;
 namespace StudyBud.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240609013847_AllModelAdd")]
+    partial class AllModelAdd
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.19");
@@ -476,30 +479,37 @@ namespace StudyBud.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Address")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("FName")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<float?>("GPA")
+                    b.Property<float>("GPA")
                         .HasColumnType("REAL");
 
                     b.Property<string>("LName")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("MInitial")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Phone")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<bool?>("Subscribed")
+                    b.Property<bool>("Subscribed")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("UserId");

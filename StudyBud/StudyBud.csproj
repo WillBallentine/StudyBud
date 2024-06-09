@@ -13,6 +13,7 @@
     <None Remove="Business\" />
     <None Remove="Data\Interfaces\" />
     <None Remove="Business\Interfaces\" />
+    <None Remove="Views\StudyPlans\" />
   </ItemGroup>
   <ItemGroup>
     <None Update="app.db" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
@@ -23,13 +24,18 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="7.0.19" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="7.0.19" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.19" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="7.0.19" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="7.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="7.0.12" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="7.0" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Business\" />
     <Folder Include="Data\Interfaces\" />
     <Folder Include="Business\Interfaces\" />
+    <Folder Include="Views\StudyPlans\" />
   </ItemGroup>
 </Project>

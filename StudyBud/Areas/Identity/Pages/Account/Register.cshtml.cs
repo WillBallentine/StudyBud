@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
+using StudyBud.Data.Interfaces;
 
 namespace StudyBud.Areas.Identity.Pages.Account
 {
@@ -29,13 +30,14 @@ namespace StudyBud.Areas.Identity.Pages.Account
         private readonly IUserEmailStore<IdentityUser> _emailStore;
         private readonly ILogger<RegisterModel> _logger;
         private readonly IEmailSender _emailSender;
+        private readonly IGeneralUserDAL _generalUserDAL;
 
         public RegisterModel(
             UserManager<IdentityUser> userManager,
             IUserStore<IdentityUser> userStore,
             SignInManager<IdentityUser> signInManager,
             ILogger<RegisterModel> logger,
-            IEmailSender emailSender)
+            IEmailSender emailSender, IGeneralUserDAL generalUserDAL)
         {
             _userManager = userManager;
             _userStore = userStore;
@@ -43,6 +45,7 @@ namespace StudyBud.Areas.Identity.Pages.Account
             _signInManager = signInManager;
             _logger = logger;
             _emailSender = emailSender;
+            _generalUserDAL = generalUserDAL;
         }
 
         /// <summary>
@@ -78,6 +81,21 @@ namespace StudyBud.Areas.Identity.Pages.Account
             [EmailAddress]
             [Display(Name = "Email")]
             public string Email { get; set; }
+
+            [Required]
+            [Phone]
+            [Display(Name = "Phone Number")]
+            public string Phone { get; set; }
+
+            [Required]
+            [StringLength(100, ErrorMessage = "Please enter your First Name", MinimumLength =1)]
+            [Display(Name = "First Name")]
+            public string FirstName { get; set; }
+
+            [Required]
+            [StringLength(100, ErrorMessage = "Please enter your Last Name", MinimumLength = 1)]
+            [Display(Name = "Last Name")]
+            public string LastName { get; set; }
 
             /// <summary>
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -123,6 +141,7 @@ namespace StudyBud.Areas.Identity.Pages.Account
                     _logger.LogInformation("User created a new account with password.");
 
                     var userId = await _userManager.GetUserIdAsync(user);
+                    _generalUserDAL.NewUser(user.Id, Input.FirstName, Input.LastName, user.Email, Input.Phone);
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                     code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
                     var callbackUrl = Url.Page(

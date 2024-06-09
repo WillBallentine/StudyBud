@@ -1,21 +1,29 @@
 ﻿using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using StudyBud.Models;
+using Microsoft.AspNetCore.Identity;
 
 namespace StudyBud.Controllers;
 
 public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
+    private readonly SignInManager<IdentityUser> _signInManager;
 
-    public HomeController(ILogger<HomeController> logger)
+    public HomeController(ILogger<HomeController> logger, SignInManager<IdentityUser> signInManager)
     {
         _logger = logger;
+        _signInManager = signInManager;
     }
 
     public IActionResult Index()
     {
-        return View();
+        if (_signInManager.IsSignedIn(User))
+        {
+            return View();
+        }
+
+        return RedirectToPage("/Account/Login", new { area = "Identity"});
     }
 
     public IActionResult Privacy()
