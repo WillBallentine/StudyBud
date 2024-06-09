@@ -1,12 +1,12 @@
-﻿@model StudyBud.Models.User
-
+﻿
 @{
     ViewData["Title"] = "Home Page";
 }
 
 
 <div class="text-center">
-    <h1 class="display-4">Let's Get That A!</h1>
+    <!--How can I access other parts of the User Model from here?-->
+    <h1 class="display-4">Let's Get That A @User.Identity.Name!</h1>
     <p>StudyBud: Helping Students Study Skillfully</a>.</p>
 
     <br />
