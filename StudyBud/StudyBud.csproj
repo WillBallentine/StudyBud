@@ -14,6 +14,8 @@
     <None Remove="Data\Interfaces\" />
     <None Remove="Business\Interfaces\" />
     <None Remove="Views\StudyPlans\" />
+    <None Remove="Pages\" />
+    <None Remove="Pages\Syllabus\" />
   </ItemGroup>
   <ItemGroup>
     <None Update="app.db" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
@@ -37,5 +39,7 @@
     <Folder Include="Data\Interfaces\" />
     <Folder Include="Business\Interfaces\" />
     <Folder Include="Views\StudyPlans\" />
+    <Folder Include="Pages\" />
+    <Folder Include="Pages\Syllabus\" />
   </ItemGroup>
 </Project>

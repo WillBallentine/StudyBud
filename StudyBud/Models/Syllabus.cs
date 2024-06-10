@@ -36,6 +36,8 @@ public class Syllabus
 
 	public bool LateWork { get; set; }
 
+	public byte[] Content { get; set; }
+
 }
 
 

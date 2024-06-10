@@ -17,7 +17,10 @@ builder.Services.AddDefaultIdentity<User>(options => options.SignIn.RequireConfi
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
 
+builder.Services.AddRazorPages();
+
 builder.Services.AddScoped<IGeneralUserDAL, GeneralUserDAL>();
+builder.Services.AddScoped<ISyllabusDAL, SyllabusDAL>();
 
 var app = builder.Build();
 
