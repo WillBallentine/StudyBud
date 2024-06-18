@@ -6,9 +6,10 @@ namespace StudyBud.Data
 {
 	public class SyllabusDAL : ISyllabusDAL
 	{
-		public void AddSyllabus()
+		public string AddUserSyllabusContent(string userId, byte[] syllabusContent)
 		{
-
+			//placeholder return
+			return "yes";
 		}
 	}
 }

@@ -4,6 +4,8 @@ using StudyBud.Data;
 using StudyBud.Data.Interfaces;
 using StudyBud.Areas.Identity.Data;
 using StudyBud.Models;
+using StudyBud.Business;
+using StudyBud.Business.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +23,7 @@ builder.Services.AddRazorPages();
 
 builder.Services.AddScoped<IGeneralUserDAL, GeneralUserDAL>();
 builder.Services.AddScoped<ISyllabusDAL, SyllabusDAL>();
+builder.Services.AddScoped<ISyllabusBLL, SyllabusBLL>();
 
 var app = builder.Build();
 

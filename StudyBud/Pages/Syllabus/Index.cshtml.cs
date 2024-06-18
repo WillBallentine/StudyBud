@@ -4,15 +4,26 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Identity;
 using StudyBud.Models;
+using StudyBud.Business.Interfaces;
 
 
 namespace StudyBud.Views.Syllabus
 {
 	public class IndexModel : PageModel
     {
+        private readonly ISyllabusBLL _syllabusBLL;
+        private readonly IHttpContextAccessor _httpContextAccesor;
+
+        public IndexModel(ISyllabusBLL syllabusBLL, IHttpContextAccessor httpContextAccessor)
+        {
+            _syllabusBLL = syllabusBLL;
+            _httpContextAccesor = httpContextAccessor;
+        }
         [BindProperty]
         public FileUpload FileUpload { get; set; }
 
@@ -30,14 +41,21 @@ namespace StudyBud.Views.Syllabus
                 // Process/Upload the file if less than 2 MB
                 if (memoryStream.Length < 2097152)
                 {
-                    var file = new Models.Syllabus()
+                    var userId = _httpContextAccesor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                    try
                     {
-                        Content = memoryStream.ToArray()
-                    };
+                        if(_syllabusBLL.ProcessSyllabus(memoryStream, userId))
+                        {
+                            return Page();
+                        }
 
-                    //process syllabus
-                    //update model
-                    //call DAL to save to db
+                    }
+                    catch (Exception ex)
+                    {
+                        //log error and return error page
+                        return Page();
+                    }
+
 
                 }
                 else

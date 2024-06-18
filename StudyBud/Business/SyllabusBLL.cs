@@ -1,6 +1,9 @@
 ﻿using System;
 using StudyBud.Data.Interfaces;
 using StudyBud.Business.Interfaces;
+using StudyBud.Models;
+using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
 
 namespace StudyBud.Business
 {
@@ -13,9 +16,32 @@ namespace StudyBud.Business
 			_syllabusDal = syllabusDal;
 		}
 
-		public void ProcessSyllabus()
+		public bool ProcessSyllabus(MemoryStream syllabus, string userId)
 		{
-			//process syllabus and call DAL
+			syllabus.Position = 0;
+			using (PdfDocument pdfDocument = PdfDocument.Open(syllabus))
+			{
+				List<string> pageData = new List<string>();
+
+				foreach (var page in pdfDocument.GetPages())
+				{
+
+                    foreach (Word word in page.GetWords())
+                    {
+						pageData.Add(word.ToString());
+                    }
+                }
+
+				foreach (var item in pageData)
+				{
+					//figure out how to deal with the words/parts of the document and
+					//then create the syllabus model to store in the db
+				}
+
+			}
+
+
+			return true;
 		}
 	}
 }
