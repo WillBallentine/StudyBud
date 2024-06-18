@@ -1,9 +1,11 @@
 ﻿using System;
+using StudyBud.Models;
+
 namespace StudyBud.Business.Interfaces
 {
 	public interface ISyllabusBLL
 	{
-		void ProcessSyllabus();
+		bool ProcessSyllabus(MemoryStream syllabus, string userId);
 	}
 }
 
