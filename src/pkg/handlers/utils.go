@@ -11,7 +11,7 @@ var Templates *template.Template
 
 func LoadTemplates() {
 	var err error
-	Templates, err = template.ParseGlob("src/web/templates/**/*.html")
+	Templates, err = template.ParseGlob("web/templates/**/*.html")
 	if err != nil {
 		log.Fatalf("error loading templates %v", err)
 	}
@@ -31,7 +31,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func renderTemplate(w http.ResponseWriter, tmpl string) {
-	t, err := template.ParseFiles("src/web/templates/pages/" + tmpl)
+	t, err := template.ParseFiles("web/templates/pages/" + tmpl)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

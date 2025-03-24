@@ -1,14 +1,12 @@
 package mongodb
 
 import (
-	"fmt"
-
 	"studybud/src/cmd/utils"
 	"studybud/src/pkg/client/mongodb"
-	"studybud/src/pkg/handlers"
-	"studybud/src/pkg/repository"
+	//"studybud/src/pkg/handlers"
+	//"studybud/src/pkg/repository"
 
-	"github.com/gin-gonic/gin"
+	//"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -31,17 +29,19 @@ func Initialize(config utils.Configuration) {
 		logrus.Fatal(err)
 	}
 
-	repository := repository.NewMongoRepository(&config, client)
-	handler := handlers.NewApiHandler(client, repository, config)
+	logrus.Info("db client %v", client)
 
-	router := gin.Default()
+	//repository := repository.NewMongoRepository(&config, client)
+	//handler := handlers.NewApiHandler(client, repository, config)
 
-	api := router.Group("api/v1")
-	{
-		api.GET("/health", handler.Healthcheck)
-	}
+	//router := gin.Default()
 
-	formattedUrl := fmt.Sprintf(":%s", config.Server.Port)
+	//api := router.Group("api/v1")
+	//{
+	//	api.GET("/health", handler.Healthcheck)
+	//}
 
-	router.Run(formattedUrl)
+	//formattedUrl := fmt.Sprintf(":%s", config.Server.Port)
+
+	//router.Run(formattedUrl)
 }

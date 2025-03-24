@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"studybud/src/cmd/utils"
 	"studybud/src/pkg/handlers"
 	"studybud/src/pkg/mongodb"
@@ -38,7 +39,7 @@ func main() {
 
 	handlers.LoadTemplates()
 
-	fs := http.FileServer(http.Dir("src/web/static"))
+	fs := http.FileServer(http.Dir("web/static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	http.HandleFunc("/favicon.ico", FaviconHandler)
@@ -86,6 +87,7 @@ func read() utils.Configuration {
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetConfigType("yml")
 
 	var config utils.Configuration

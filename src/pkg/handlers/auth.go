@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var templates = template.Must(template.ParseGlob("src/web/templates/**/*.html"))
+var templates = template.Must(template.ParseGlob("web/templates/**/*.html"))
 var store = sessions.NewCookieStore([]byte("some_key"))
 
 // faking a user db for testing
@@ -61,7 +61,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/home", http.StatusSeeOther)
 	}
 
-	tmpl, err := template.ParseFiles("src/web/templates/pages/login.html")
+	tmpl, err := template.ParseFiles("web/templates/pages/login.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

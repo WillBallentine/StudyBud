@@ -1,0 +1,36 @@
+version: "3.8"
+
+networks:
+  studybud-net:
+    driver: bridge
+
+services:
+  mongodb:
+    image: mongo:5.0
+    container_name: mongodb
+    ports:
+    - 27017:27017
+    healthcheck:
+      test:
+      - CMD
+      - mongo
+      - --eval
+      - "db.adminCommand('ping')"
+    restart: unless-stopped
+    networks:
+      - studybud-net
+
+  studybud:
+    build:
+      context: .
+      dockerfile: ./dockerfile
+    ports:
+      - 8080:8080
+    restart: on-failure
+    env_file:
+      - .env
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - studybud-net
