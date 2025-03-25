@@ -33,6 +33,9 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	email := r.FormValue("email")
 	password := r.FormValue("password")
+	firstname := r.FormValue("firstname")
+	lastname := r.FormValue("lastname")
+	school := r.FormValue("school")
 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -44,11 +47,11 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	var newUser *entity.User
 
 	newUser = &entity.User{
-		FirstName:         "test",
-		LastName:          "test",
+		FirstName:         firstname,
+		LastName:          lastname,
 		Email:             email,
 		Password:          string(hashedPassword),
-		School:            "sbts",
+		School:            school,
 		SubscriptionLevel: "premium",
 	}
 
