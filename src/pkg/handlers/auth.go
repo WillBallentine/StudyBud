@@ -1,13 +1,21 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
+	"studybud/src/cmd/utils"
+	"studybud/src/pkg/entity"
+	"studybud/src/pkg/mongodb"
 )
+
+var config = utils.Read_Configuration(utils.Read())
+var mongo_repo = mongodb.Initialize(config)
 
 var templates = template.Must(template.ParseGlob("web/templates/**/*.html"))
 var store = sessions.NewCookieStore([]byte("some_key"))
@@ -34,8 +42,22 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var newUser *entity.User
+
+	newUser = &entity.User{
+		FirstName:         "test",
+		LastName:          "test",
+		Email:             email,
+		Password:          string(hashedPassword),
+		School:            "sbts",
+		SubscriptionLevel: "premium",
+	}
+
 	// Save user
-	users[email] = string(hashedPassword)
+	ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
+	defer ctxErr()
+
+	mongo_repo.AddUser(*newUser, ctx)
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

@@ -3,14 +3,12 @@ package mongodb
 import (
 	"studybud/src/cmd/utils"
 	"studybud/src/pkg/client/mongodb"
-	//"studybud/src/pkg/handlers"
-	//"studybud/src/pkg/repository"
+	"studybud/src/pkg/repository"
 
-	//"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
-func Initialize(config utils.Configuration) {
+func Initialize(config utils.Configuration) repository.MongoRepository {
 	var log = logrus.New()
 
 	log.WithFields(logrus.Fields{
@@ -29,19 +27,7 @@ func Initialize(config utils.Configuration) {
 		logrus.Fatal(err)
 	}
 
-	logrus.Info("db client %v", client)
+	repository := repository.NewMongoRepository(&config, client)
 
-	//repository := repository.NewMongoRepository(&config, client)
-	//handler := handlers.NewApiHandler(client, repository, config)
-
-	//router := gin.Default()
-
-	//api := router.Group("api/v1")
-	//{
-	//	api.GET("/health", handler.Healthcheck)
-	//}
-
-	//formattedUrl := fmt.Sprintf(":%s", config.Server.Port)
-
-	//router.Run(formattedUrl)
+	return repository
 }
