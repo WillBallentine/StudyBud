@@ -16,6 +16,7 @@ import (
 type MongoRepository interface {
 	AddUser(user entity.User, ctx context.Context) (primitive.ObjectID, error)
 	GetUserById(oId primitive.ObjectID, ctx context.Context) (*entity.User, error)
+	GetUserByEmail(email string, ctx context.Context) (*entity.User, bool)
 }
 
 type mongoRepository struct {
@@ -54,4 +55,23 @@ func (userRepo *mongoRepository) GetUserById(oId primitive.ObjectID, ctx context
 	collection.FindOne(ctx, filter).Decode(&user)
 
 	return user, nil
+}
+
+func (userRepo *mongoRepository) GetUserByEmail(email string, ctx context.Context) (*entity.User, bool) {
+	collection := userRepo.client.Database(userRepo.config.Database.DbName).Collection(userRepo.config.Database.Collection)
+
+	filter := bson.D{primitive.E{Key: "email", Value: email}}
+	var exists bool
+
+	var user *entity.User
+
+	err := collection.FindOne(ctx, filter).Decode(&user)
+
+	if err != nil {
+		exists = false
+	} else {
+		exists = true
+	}
+
+	return user, exists
 }

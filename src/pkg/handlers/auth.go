@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/sessions"
-	"golang.org/x/crypto/bcrypt"
 	"studybud/src/cmd/utils"
 	"studybud/src/pkg/entity"
 	"studybud/src/pkg/mongodb"
+
+	"github.com/gorilla/sessions"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var config = utils.Read_Configuration(utils.Read())
@@ -53,11 +55,20 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		SubscriptionLevel: "premium",
 	}
 
-	// Save user
+	// Register user
 	ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
 	defer ctxErr()
 
-	mongo_repo.AddUser(*newUser, ctx)
+	oId, err := mongo_repo.AddUser(*newUser, ctx)
+
+	if err != nil {
+		logrus.Info("failed to register user")
+		http.Redirect(w, r, "/register", http.StatusBadRequest)
+	}
+
+	session, _ := store.Get(r, "session")
+	session.Values["userId"] = oId
+	session.Save(r, w)
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
@@ -68,9 +79,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		email := r.FormValue("email")
 		password := r.FormValue("password")
 
+		ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
+		defer ctxErr()
 		// Validate user
-		hashedPassword, exists := users[email]
-		if !exists || bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) != nil {
+		hashedPassword, exists := mongo_repo.GetUserByEmail(email, ctx)
+		if !exists || bcrypt.CompareHashAndPassword([]byte(hashedPassword.Password), []byte(password)) != nil {
 			//eventually some notification to user and retry logic. dont want to take to registration just for typos
 			http.Redirect(w, r, "/register", http.StatusSeeOther)
 		}
@@ -80,7 +93,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		session.Values["email"] = email
 		session.Save(r, w)
 
-		http.Redirect(w, r, "/home", http.StatusSeeOther)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 
 	tmpl, err := template.ParseFiles("web/templates/pages/login.html")
@@ -94,6 +107,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "session")
-	delete(session.Values, "email")
+	delete(session.Values, "userId")
 	session.Save(r, w)
 }
