@@ -22,9 +22,6 @@ var mongo_repo = mongodb.Initialize(config)
 var templates = template.Must(template.ParseGlob("web/templates/**/*.html"))
 var store = sessions.NewCookieStore([]byte("some_key"))
 
-// faking a user db for testing
-var users = map[string]string{}
-
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		err := Templates.ExecuteTemplate(w, "base.html", map[string]string{"Title": "Register"})
@@ -105,6 +102,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, nil)
 }
 
+// this needs a full fleshing out. currently just clearing session data.
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "session")
 	delete(session.Values, "userId")
