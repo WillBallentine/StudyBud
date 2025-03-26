@@ -1,10 +1,17 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	model "studybud/src/pkg/models"
+	service "studybud/src/pkg/service"
+
+	"github.com/sirupsen/logrus"
 )
 
 var Templates *template.Template
@@ -36,4 +43,83 @@ func renderTemplate(w http.ResponseWriter, tmpl string) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	t.Execute(w, nil)
+}
+
+func UploadHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+
+		err := r.ParseMultipartForm(10 >> 20)
+		if err != nil {
+			http.Error(w, "error parsing form data", http.StatusBadRequest)
+			logrus.Errorf("error parsing form data: %v", err)
+		}
+		file, _, err := r.FormFile("file")
+
+		if err != nil {
+			http.Error(w, "failed to read file", http.StatusBadRequest)
+			logrus.Errorf("failed to read file: %v", err)
+			return
+		}
+
+		defer file.Close()
+
+		tempfile, err := os.CreateTemp("", "syllabus-*.pdf")
+		if err != nil {
+			http.Error(w, "could not create temp file", http.StatusInternalServerError)
+			logrus.Errorf("could not create temp file: %v", err)
+			return
+		}
+
+		defer os.Remove(tempfile.Name())
+
+		_, err = io.Copy(tempfile, file)
+		if err != nil {
+			http.Error(w, "could not save file", http.StatusInternalServerError)
+			logrus.Errorf("could not save file: %v", err)
+			return
+		}
+
+		textChan := make(chan string)
+		processResultChan := make(chan model.SyllabusData)
+		errChan := make(chan error)
+
+		go service.ExtractPdfTextAsync(tempfile.Name(), textChan, errChan)
+
+		var extractedText string
+		select {
+		case text := <-textChan:
+			extractedText = text
+		case err := <-errChan:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if extractedText == "" {
+			http.Error(w, "failed to extract text", http.StatusInternalServerError)
+			logrus.Errorf("failed to extract text: %v", err)
+			return
+		}
+
+		go service.ParseSyllabus(extractedText, processResultChan, errChan)
+
+		var response model.SyllabusData
+		select {
+		case result := <-processResultChan:
+			response = result
+		case err := <-errChan:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}
+
+	tmpl, err := template.ParseFiles("web/templates/pages/upload.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tmpl.Execute(w, nil)
 }

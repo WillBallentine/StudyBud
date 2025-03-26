@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <header>
+        <h1>StudyBud</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/login">Login</a>
+            <a href="/register">Register</a>
+            <a href="/upload">Upload</a>
+        </nav>
+        <script>
+            function navigate(event, url) {
+                event.preventDefautl();
+                window.location.href = url;
+            }
+        </script>
+    </header>
+    <main>
+        <h>Upload</h2>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <label for="pdfFile">Select a PDF:</label>
+                <input type="file" id="pdfFile" name="file" accept="application/pdf" required>
+                <br><br>
+                <button type="submit">Upload</button>
+            </form>
+    </main>
+</body>
+
+</html>
