@@ -14,8 +14,6 @@ import (
 )
 
 func ExtractPdfTextAsync(pdfPath string, textChan chan<- string, errChan chan<- error) {
-	defer close(textChan)
-	defer close(errChan)
 
 	f, err := os.Open(pdfPath)
 	if err != nil {
@@ -33,6 +31,8 @@ func ExtractPdfTextAsync(pdfPath string, textChan chan<- string, errChan chan<- 
 		return
 	}
 
+	logrus.Infof("processing pdf: %s", fileInfo.Name())
+
 	r, err := pdf.NewReader(f, fileInfo.Size())
 	if err != nil {
 		errChan <- fmt.Errorf("error reading PDF: %v", err)
@@ -42,21 +42,34 @@ func ExtractPdfTextAsync(pdfPath string, textChan chan<- string, errChan chan<- 
 
 	var extractedText bytes.Buffer
 	for i := 1; i <= r.NumPage(); i++ {
+		logrus.Infof("processing page %d", i)
 		page := r.Page(i)
+		if page.V.IsNull() {
+			logrus.Errorf("error: page %d is empty", i)
+
+		}
+		text := page.V.Text()
+		logrus.Infof("extracted text from page %d: %s", i, text[:min(len(text), 100)])
 		extractedText.WriteString(page.V.Text() + "\n")
+	}
+
+	logrus.Info("finished processing pages")
+	if extractedText.Len() == 0 {
+		errChan <- fmt.Errorf("no text extracted from pdf")
+		logrus.Error("no text extracted")
+		return
 	}
 
 	textChan <- extractedText.String()
 }
 
-func ParseSyllabus(text string, resultChan chan<- model.SyllabusData, errChan chan<- error) (model.SyllabusData, error) {
+func ParseSyllabus(text string, resultChan chan<- model.SyllabusData, errChan chan<- error) {
 	var syllabus model.SyllabusData
 
 	doc, err := prose.NewDocument(text)
 	if err != nil {
 		logrus.Errorf("failed to process pdf: %v", err)
 		errChan <- fmt.Errorf("failed to process pdf: %v", err)
-		return model.SyllabusData{}, err
 	}
 
 	for _, ent := range doc.Entities() {
@@ -84,7 +97,7 @@ func ParseSyllabus(text string, resultChan chan<- model.SyllabusData, errChan ch
 	syllabus.School = "temp eventually will be pulled from user account data"
 	syllabus.Semester = "temp. eventually pulled from user account data"
 
-	return syllabus, nil
+	resultChan <- syllabus
 
 }
 

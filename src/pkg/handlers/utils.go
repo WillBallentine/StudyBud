@@ -53,6 +53,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "error parsing form data", http.StatusBadRequest)
 			logrus.Errorf("error parsing form data: %v", err)
 		}
+
 		file, _, err := r.FormFile("file")
 
 		if err != nil {
@@ -70,7 +71,8 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		defer os.Remove(tempfile.Name())
+		defer tempfile.Close()
+		//defer os.Remove(tempfile.Name())
 
 		_, err = io.Copy(tempfile, file)
 		if err != nil {
@@ -83,12 +85,21 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		processResultChan := make(chan model.SyllabusData)
 		errChan := make(chan error)
 
-		go service.ExtractPdfTextAsync(tempfile.Name(), textChan, errChan)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logrus.Errorf("recovered from panic: %v", r)
+					errChan <- fmt.Errorf("internal error in pdf extraction")
+				}
+			}()
+			service.ExtractPdfTextAsync(tempfile.Name(), textChan, errChan)
+		}()
 
 		var extractedText string
 		select {
 		case text := <-textChan:
 			extractedText = text
+			logrus.Info("textchan returns")
 		case err := <-errChan:
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -100,17 +111,30 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		go service.ParseSyllabus(extractedText, processResultChan, errChan)
+		os.Remove(tempfile.Name())
+
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logrus.Errorf("recovered from panic in syllabus parsing: %v", r)
+					errChan <- fmt.Errorf("internal error in syllabus parsing")
+				}
+			}()
+			service.ParseSyllabus(extractedText, processResultChan, errChan)
+		}()
 
 		var response model.SyllabusData
 		select {
 		case result := <-processResultChan:
+			logrus.Info("result chan")
 			response = result
 		case err := <-errChan:
+			logrus.Info("err chan")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
+		logrus.Info(response)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
