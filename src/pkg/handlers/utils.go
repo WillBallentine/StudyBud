@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	model "studybud/src/pkg/models"
@@ -54,6 +55,8 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			logrus.Errorf("error parsing form data: %v", err)
 		}
 
+		logrus.Infof("header: %s", r.Header.Get("Content-Type"))
+
 		file, _, err := r.FormFile("file")
 
 		if err != nil {
@@ -64,6 +67,30 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		defer file.Close()
 
+		textChan := make(chan string)
+		processResultChan := make(chan model.SyllabusData)
+		fileTypeChan := make(chan string)
+		errChan := make(chan error)
+
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logrus.Errorf("recovered from panic in getFileType: %v", r)
+					errChan <- fmt.Errorf("internal error in file type extraction")
+				}
+			}()
+			getFileType(file, fileTypeChan, errChan)
+		}()
+
+		var fileType string
+		select {
+		case filetype := <-fileTypeChan:
+			fileType = filetype
+		case err := <-errChan:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		tempfile, err := os.CreateTemp("", "syllabus-*.pdf")
 		if err != nil {
 			http.Error(w, "could not create temp file", http.StatusInternalServerError)
@@ -72,7 +99,6 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		defer tempfile.Close()
-		//defer os.Remove(tempfile.Name())
 
 		_, err = io.Copy(tempfile, file)
 		if err != nil {
@@ -81,25 +107,37 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		textChan := make(chan string)
-		processResultChan := make(chan model.SyllabusData)
-		errChan := make(chan error)
+		logrus.Infof("pdf file successfully written: %s", tempfile.Name())
 
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					logrus.Errorf("recovered from panic: %v", r)
-					errChan <- fmt.Errorf("internal error in pdf extraction")
-				}
+		//TODO: NEED TO FIX GETFILETYPE. THIS ALTERS THE STREAM AND BREAKS THE FUNC
+
+		if fileType == "pdf" {
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logrus.Errorf("recovered from panic: %v", r)
+						errChan <- fmt.Errorf("internal error in pdf extraction")
+					}
+				}()
+				service.ExtractPdfTextAsync(tempfile.Name(), textChan, errChan)
 			}()
-			service.ExtractPdfTextAsync(tempfile.Name(), textChan, errChan)
-		}()
+
+		} else if fileType == "docx" {
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logrus.Errorf("recovered from panic: %v", r)
+						errChan <- fmt.Errorf("internal error in pdf extraction")
+					}
+				}()
+				service.ExtractDocxTextAsync(tempfile.Name(), textChan, errChan)
+			}()
+		}
 
 		var extractedText string
 		select {
 		case text := <-textChan:
 			extractedText = text
-			logrus.Info("textchan returns")
 		case err := <-errChan:
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -134,7 +172,6 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logrus.Info(response)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
@@ -146,4 +183,29 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl.Execute(w, nil)
+}
+
+func getFileType(file multipart.File, fileTypeChan chan<- string, errChan chan<- error) {
+	buffer := make([]byte, 512)
+	_, err := file.Read(buffer)
+
+	if err != nil {
+		errChan <- fmt.Errorf("error reading file in type detection: %v", err)
+		logrus.Errorf("could not read file to extract file type")
+		return
+	}
+
+	fileType := http.DetectContentType(buffer)
+
+	if fileType == "application/pdf" {
+		fileTypeChan <- "pdf"
+		return
+	}
+	if fileType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" {
+		fileTypeChan <- "docx"
+		return
+	}
+
+	errChan <- fmt.Errorf("unsupported file type: %s", fileType)
+
 }

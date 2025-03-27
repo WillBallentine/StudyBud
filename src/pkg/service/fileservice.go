@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -10,6 +12,7 @@ import (
 
 	"github.com/jdkato/prose/v2"
 	"github.com/ledongthuc/pdf"
+	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,6 +35,13 @@ func ExtractPdfTextAsync(pdfPath string, textChan chan<- string, errChan chan<- 
 	}
 
 	logrus.Infof("processing pdf: %s", fileInfo.Name())
+
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		errChan <- fmt.Errorf("error resetting pointer: %v", err)
+		logrus.Errorf("error resetting pointer: %v", err)
+		return
+	}
 
 	r, err := pdf.NewReader(f, fileInfo.Size())
 	if err != nil {
@@ -61,6 +71,48 @@ func ExtractPdfTextAsync(pdfPath string, textChan chan<- string, errChan chan<- 
 	}
 
 	textChan <- extractedText.String()
+}
+
+func ExtractDocxTextAsync(path string, textChan chan<- string, errChan chan<- error) {
+	docxFile, err := os.Open(path)
+	if err != nil {
+		errChan <- fmt.Errorf("error opening docx file: %v", err)
+		logrus.Errorf("error opening docx file: %v", err)
+		return
+	}
+
+	defer docxFile.Close()
+
+	tmpDir, err := ioutil.TempDir("", "docx_extract")
+	if err != nil {
+		errChan <- fmt.Errorf("error creating temp dir: %v", err)
+		logrus.Errorf("error creating temp dir: %v", err)
+		return
+	}
+
+	defer os.RemoveAll(tmpDir)
+
+	err = copy.Copy(path, tmpDir)
+	if err != nil {
+		errChan <- fmt.Errorf("error unzipping docx file: %v", err)
+		logrus.Errorf("error unzipping docx file: %v", err)
+		return
+	}
+
+	documentXML := fmt.Sprintf("%s/word/document.xml", tmpDir)
+
+	xmlContent, err := ioutil.ReadFile(documentXML)
+	if err != nil {
+		errChan <- fmt.Errorf("error reading document.xml: %v", err)
+		logrus.Errorf("error reading document.xml: %v", err)
+		return
+	}
+
+	text := strings.ReplaceAll(string(xmlContent), "<w:t>", "")
+	text = strings.ReplaceAll(text, "</w:t>", "")
+
+	textChan <- text
+
 }
 
 func ParseSyllabus(text string, resultChan chan<- model.SyllabusData, errChan chan<- error) {
