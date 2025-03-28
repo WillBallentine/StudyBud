@@ -17,7 +17,7 @@ import (
 )
 
 var config = utils.Read_Configuration(utils.Read())
-var mongo_repo = mongodb.Initialize(config)
+var mongo_repo = mongodb.Initialize(config, "users")
 
 var templates = template.Must(template.ParseGlob("web/templates/**/*.html"))
 var store = sessions.NewCookieStore([]byte("some_key"))

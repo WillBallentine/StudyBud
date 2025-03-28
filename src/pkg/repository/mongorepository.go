@@ -6,17 +6,16 @@ import (
 	"studybud/src/cmd/utils"
 	"studybud/src/pkg/entity"
 
-	//"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	//"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type MongoRepository interface {
 	AddUser(user entity.User, ctx context.Context) (primitive.ObjectID, error)
 	GetUserById(oId primitive.ObjectID, ctx context.Context) (*entity.User, error)
 	GetUserByEmail(email string, ctx context.Context) (*entity.User, bool)
+	AddSyllabus(syll entity.SyllabusDataEntity, ctx context.Context) (primitive.ObjectID, error)
 }
 
 type mongoRepository struct {
@@ -74,4 +73,20 @@ func (userRepo *mongoRepository) GetUserByEmail(email string, ctx context.Contex
 	}
 
 	return user, exists
+}
+
+func (syllRepo *mongoRepository) AddSyllabus(syll entity.SyllabusDataEntity, ctx context.Context) (primitive.ObjectID, error) {
+	collection := syllRepo.client.Database(syllRepo.config.Database.DbName).Collection(syllRepo.config.Database.Collection)
+
+	insertResult, err := collection.InsertOne(ctx, syll)
+
+	if err != mongo.ErrNilCursor {
+		return primitive.NilObjectID, err
+	}
+
+	if oidResult, ok := insertResult.InsertedID.(primitive.ObjectID); ok {
+		return oidResult, nil
+	} else {
+		return primitive.NilObjectID, err
+	}
 }

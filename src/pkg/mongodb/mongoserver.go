@@ -8,14 +8,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Initialize(config utils.Configuration) repository.MongoRepository {
+func Initialize(config utils.Configuration, collection string) repository.MongoRepository {
 	var log = logrus.New()
 
 	log.WithFields(logrus.Fields{
 		"mongo_url":   config.Database.Url,
 		"server_port": config.Server.Port,
 		"db_name":     config.Database.DbName,
-		"collection":  config.Database.Collection,
+		"collection":  collection,
 		"timeout":     config.App.Timeout,
 	}).Info("\nConfiguration information\n")
 
@@ -23,6 +23,7 @@ func Initialize(config utils.Configuration) repository.MongoRepository {
 
 	client, err := mongodb.ConnectMongoDb(config.Database.Url)
 
+	config.Database.Collection = collection
 	if err != nil {
 		logrus.Fatal(err)
 	}
