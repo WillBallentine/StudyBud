@@ -276,17 +276,6 @@ func xmlEscape(text string) string {
 	return r.Replace(text)
 }
 
-func jsonStartIndex(response string) int {
-	start := -1
-	for i, ch := range response {
-		if ch == '{' {
-			start = i
-			break
-		}
-	}
-	return start
-}
-
 func extractJSON(response string) string {
 	if strings.HasPrefix(response, "```json") {
 		response = strings.TrimPrefix(response, "```json")
