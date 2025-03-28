@@ -1,7 +1,6 @@
 database:
   url: "mongodb://172.18.0.2:27017"
   dbname: "studybud"
-  collection: "users"
 
 server:
   port: "8080"

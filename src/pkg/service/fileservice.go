@@ -3,6 +3,7 @@ package service
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,8 +12,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
+	"studybud/src/cmd/utils"
+	"studybud/src/pkg/entity"
 	"studybud/src/pkg/models"
+	"studybud/src/pkg/mongodb"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/ledongthuc/pdf"
@@ -20,6 +25,9 @@ import (
 )
 
 const openaiAPIURL = "https://api.openai.com/v1/chat/completions"
+
+var config = utils.Read_Configuration(utils.Read())
+var mongo_repo = mongodb.Initialize(config, "syllabus")
 
 func ExtractPdfTextAsync(pdfPath string, textChan chan<- string, errChan chan<- error) {
 
@@ -219,6 +227,8 @@ func ParseSyllabusWithOpenAI(text string, resultChan chan<- model.SyllabusData, 
 		return
 	}
 
+	saveSyllabus(syllabusData)
+
 	resultChan <- syllabusData
 }
 
@@ -286,4 +296,55 @@ func extractJSON(response string) string {
 	}
 
 	return strings.TrimSpace(response)
+}
+
+func saveSyllabus(syll model.SyllabusData) {
+	ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
+	defer ctxErr()
+
+	var newsyllabusEntity *entity.SyllabusDataEntity
+	newsyllabusEntity = &entity.SyllabusDataEntity{
+		Instructor:    syll.Instuctor,
+		CourseCode:    syll.CourseCode,
+		CourseName:    syll.CourseName,
+		Assignments:   toAssignmentEntity(syll.Assignments),
+		RequiredTexts: toRequiredTextsEntity(syll.References),
+		School:        syll.School,
+		Semester:      syll.Semester,
+	}
+
+	oId, err := mongo_repo.AddSyllabus(*newsyllabusEntity, ctx)
+
+	if err != nil {
+		logrus.Error("failed to save syllabus to db")
+	}
+
+	logrus.Infof("saved to db. oId: %d", oId)
+
+}
+
+func toAssignmentEntity(input []model.Assignment) []entity.AssignmentEntity {
+	var entities []entity.AssignmentEntity
+	for _, assignment := range input {
+		entities = append(entities, entity.AssignmentEntity{
+			Title:       assignment.Title,
+			Description: assignment.Description,
+			DueDate:     assignment.DueDate,
+			Refs:        toRequiredTextsEntity(assignment.Refs),
+		})
+	}
+	return entities
+}
+
+func toRequiredTextsEntity(input []model.Reference) []entity.ReferenceEntity {
+	var entities []entity.ReferenceEntity
+	for _, ref := range input {
+		entities = append(entities, entity.ReferenceEntity{
+			Title:  ref.Title,
+			Author: ref.Author,
+			Link:   ref.Link,
+		})
+	}
+
+	return entities
 }
