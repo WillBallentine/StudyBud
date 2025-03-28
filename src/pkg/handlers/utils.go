@@ -1,14 +1,15 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"os"
+	"strings"
 	model "studybud/src/pkg/models"
 	service "studybud/src/pkg/service"
 
@@ -67,6 +68,16 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		defer file.Close()
 
+		buf := new(bytes.Buffer)
+		_, err = io.Copy(buf, file)
+		if err != nil {
+			http.Error(w, "failed to buffer file", http.StatusInternalServerError)
+			logrus.Errorf("failed to buffer file: %v", err)
+			return
+		}
+
+		fileReader := bytes.NewReader(buf.Bytes())
+
 		textChan := make(chan string)
 		processResultChan := make(chan model.SyllabusData)
 		fileTypeChan := make(chan string)
@@ -79,7 +90,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 					errChan <- fmt.Errorf("internal error in file type extraction")
 				}
 			}()
-			getFileType(file, fileTypeChan, errChan)
+			getFileType(fileReader, fileTypeChan, errChan)
 		}()
 
 		var fileType string
@@ -91,6 +102,8 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		fileReader.Seek(0, io.SeekStart)
+
 		tempfile, err := os.CreateTemp("", "syllabus-*.pdf")
 		if err != nil {
 			http.Error(w, "could not create temp file", http.StatusInternalServerError)
@@ -100,7 +113,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		defer tempfile.Close()
 
-		_, err = io.Copy(tempfile, file)
+		_, err = io.Copy(tempfile, fileReader)
 		if err != nil {
 			http.Error(w, "could not save file", http.StatusInternalServerError)
 			logrus.Errorf("could not save file: %v", err)
@@ -108,8 +121,6 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logrus.Infof("pdf file successfully written: %s", tempfile.Name())
-
-		//TODO: NEED TO FIX GETFILETYPE. THIS ALTERS THE STREAM AND BREAKS THE FUNC
 
 		if fileType == "pdf" {
 			go func() {
@@ -185,9 +196,9 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, nil)
 }
 
-func getFileType(file multipart.File, fileTypeChan chan<- string, errChan chan<- error) {
-	buffer := make([]byte, 512)
-	_, err := file.Read(buffer)
+func getFileType(file io.Reader, fileTypeChan chan<- string, errChan chan<- error) {
+	var buf [512]byte
+	n, err := file.Read(buf[:])
 
 	if err != nil {
 		errChan <- fmt.Errorf("error reading file in type detection: %v", err)
@@ -195,13 +206,14 @@ func getFileType(file multipart.File, fileTypeChan chan<- string, errChan chan<-
 		return
 	}
 
-	fileType := http.DetectContentType(buffer)
+	fileType := http.DetectContentType(buf[:n])
 
-	if fileType == "application/pdf" {
+	logrus.Infof("file type: %s", fileType)
+
+	if strings.Contains(fileType, "pdf") {
 		fileTypeChan <- "pdf"
 		return
-	}
-	if fileType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" {
+	} else if strings.Contains(fileType, "word") || strings.Contains(fileType, "zip") {
 		fileTypeChan <- "docx"
 		return
 	}

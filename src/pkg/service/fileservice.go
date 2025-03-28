@@ -92,6 +92,7 @@ func ExtractDocxTextAsync(path string, textChan chan<- string, errChan chan<- er
 
 	defer os.RemoveAll(tmpDir)
 
+	//TODO: this is where the docx is erroring out
 	err = copy.Copy(path, tmpDir)
 	if err != nil {
 		errChan <- fmt.Errorf("error unzipping docx file: %v", err)
