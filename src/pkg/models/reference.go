@@ -1,8 +1,7 @@
 package model
 
 type Reference struct {
-	Title     string
-	Author    string
-	Url       string
-	PageCount int
+	Title  string `json:"title"`
+	Author string `json:"author"`
+	Link   string `json:"link"`
 }
