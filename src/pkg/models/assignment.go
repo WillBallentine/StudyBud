@@ -1,9 +1,8 @@
 package model
 
 type Assignment struct {
-	Title       string
-	Description string
-	DueDate     string
-	Refs        []Reference
-	Type        string
+	Title       string      `json:"title"`
+	Description string      `json:"desc"`
+	DueDate     string      `json:"due_date"`
+	Refs        []Reference `json:"related_texts"`
 }

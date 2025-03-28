@@ -3,19 +3,23 @@ package service
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"studybud/src/pkg/models"
 
-	"github.com/jdkato/prose/v2"
+	"github.com/go-resty/resty/v2"
 	"github.com/ledongthuc/pdf"
 	"github.com/sirupsen/logrus"
 )
+
+const openaiAPIURL = "https://api.openai.com/v1/chat/completions"
 
 func ExtractPdfTextAsync(pdfPath string, textChan chan<- string, errChan chan<- error) {
 
@@ -126,65 +130,96 @@ func ExtractDocxTextAsync(path string, textChan chan<- string, errChan chan<- er
 		return
 	}
 
-	text := strings.ReplaceAll(string(xmlContent), "<w:t>", "")
-	text = strings.ReplaceAll(text, "</w:t>", "")
+	re := regexp.MustCompile("<[^>]*>")
+	text := re.ReplaceAllString(string(xmlContent), "")
+	text = xmlEscape(text)
 
 	textChan <- text
 
 }
 
-func ParseSyllabus(text string, resultChan chan<- model.SyllabusData, errChan chan<- error) {
-	var syllabus model.SyllabusData
+func ParseSyllabusWithOpenAI(text string, resultChan chan<- model.SyllabusData, errChan chan<- error) {
+	client := resty.New()
 
-	doc, err := prose.NewDocument(text)
+	prompt := fmt.Sprintf(`
+		Extract the following information from the given college course syllabus text:
+		- Professor Name
+		- Course Title
+		- Course Code
+		- Assignments (with due dates and description if available. if there are any related texts for the assignment, add their title if available)
+		- Required Textbooks (titles & authors. please include a link if available)
+		- School
+		- Semester
+		
+		Return the response strictly in this JSON format:
+		{
+			"professor_name": "",
+			"course_title": "",
+			"course_code": "",
+			"assignments": [{"title": "", "desc": "", "due_date": "", "related_texts": [{"title": ""}]}],
+			"required_texts": [{"title": "", "author": "", "link": ""}],
+			"school": "",
+			"semester": ""
+		}
+
+		Text:
+		"""%s"""
+		Respond only with valid JSON
+	`, text)
+
+	resp, err := client.R().SetHeader("Content-Type", "application/json").SetHeader("Authorization", "Bearer "+os.Getenv("OPENAI_API_KEY")).SetBody(map[string]interface{}{
+		"model":    "gpt-4o",
+		"messages": []map[string]string{{"role": "user", "content": prompt}}, "temperature": 0.2,
+	}).Post(openaiAPIURL)
+
 	if err != nil {
-		logrus.Errorf("failed to process pdf: %v", err)
-		errChan <- fmt.Errorf("failed to process pdf: %v", err)
+		errChan <- fmt.Errorf("error sending to openai: %v", err)
 	}
 
-	for _, ent := range doc.Entities() {
-		if strings.Contains(strings.ToLower(ent.Label), "person") {
-			if strings.Contains(strings.ToLower(ent.Text), "prof") || strings.Contains(strings.ToLower(ent.Text), "instructor") {
-				syllabus.Instuctor = ent.Text
-				break
-			}
-		}
+	logrus.Infof("resp: %v", resp)
+
+	var result map[string]interface{}
+	err = json.Unmarshal(resp.Body(), &result)
+	if err != nil {
+		errChan <- fmt.Errorf("could not unmarshal response from openai: %v", err)
+		logrus.Errorf("error unmarshalling response from openai: %v", err)
+		return
 	}
 
-	for _, ent := range doc.Entities() {
-		if strings.Contains(strings.ToLower(ent.Text), "assignment") {
-			syllabus.Assignments = append(syllabus.Assignments, ent.Text)
-		}
+	choices, ok := result["choices"].([]interface{})
+	if !ok || len(choices) == 0 {
+		errChan <- fmt.Errorf("unexpected API response format")
+		logrus.Errorf("unexpected API response format")
+		return
 	}
 
-	for _, ent := range doc.Entities() {
-		if strings.Contains(strings.ToLower(ent.Text), "books") || strings.Contains(strings.ToLower(ent.Text), "texts") {
-			syllabus.References = append(syllabus.References, ent.Text)
-		}
+	message, ok := choices[0].(map[string]interface{})["message"].(map[string]interface{})
+	if !ok || len(choices) == 0 {
+		errChan <- fmt.Errorf("unexpected API response format")
+		logrus.Errorf("unexpected API response format")
+		return
 	}
 
-	syllabus.CourseName = "temp. eventually this will be pulled from user input when uploading syllabus"
-	syllabus.School = "temp eventually will be pulled from user account data"
-	syllabus.Semester = "temp. eventually pulled from user account data"
-
-	resultChan <- syllabus
-
-}
-
-func extractSection(text string, startKeyword string, endKeyword string) string {
-	startIdx := strings.Index(strings.ToLower(text), strings.ToLower(startKeyword))
-	if startIdx == -1 {
-		return ""
+	content, ok := message["content"].(string)
+	if !ok || len(choices) == 0 {
+		errChan <- fmt.Errorf("unexpected API response format")
+		logrus.Errorf("unexpected API response format")
+		return
 	}
 
-	remainingText := text[startIdx+len(startKeyword):]
-	endIdx := strings.Index(strings.ToLower(remainingText), strings.ToLower(endKeyword))
+	cleanedjson := extractJSON(content)
 
-	if endIdx != -1 {
-		return remainingText[:endIdx]
+	logrus.Infof("cleaned json: %v", cleanedjson)
+
+	var syllabusData model.SyllabusData
+	err = json.Unmarshal([]byte(cleanedjson), &syllabusData)
+	if err != nil {
+		errChan <- fmt.Errorf("error unmarshaling into syllabusdata model: %v", err)
+		logrus.Errorf("error unmarshaling into syllabusdata model: %v", err)
+		return
 	}
 
-	return remainingText
+	resultChan <- syllabusData
 }
 
 func unzip(src, dest string) error {
@@ -227,4 +262,39 @@ func unzip(src, dest string) error {
 		}
 	}
 	return nil
+}
+
+func xmlEscape(text string) string {
+	r := strings.NewReplacer(
+		"&lt;", "<",
+		"&gt;", ">",
+		"&amp;", "&",
+		"&quot;", `"`,
+		"&apos;", "'",
+	)
+
+	return r.Replace(text)
+}
+
+func jsonStartIndex(response string) int {
+	start := -1
+	for i, ch := range response {
+		if ch == '{' {
+			start = i
+			break
+		}
+	}
+	return start
+}
+
+func extractJSON(response string) string {
+	if strings.HasPrefix(response, "```json") {
+		response = strings.TrimPrefix(response, "```json")
+	}
+
+	if strings.HasSuffix(response, "```") {
+		response = strings.TrimSuffix(response, "```")
+	}
+
+	return strings.TrimSpace(response)
 }

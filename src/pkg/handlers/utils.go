@@ -56,8 +56,6 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			logrus.Errorf("error parsing form data: %v", err)
 		}
 
-		logrus.Infof("header: %s", r.Header.Get("Content-Type"))
-
 		file, _, err := r.FormFile("file")
 
 		if err != nil {
@@ -111,7 +109,6 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			logrus.Errorf("could not create temp file: %v", err)
 			return
 		}
-		logrus.Infof("utils temp file: %v", tempfile)
 
 		defer tempfile.Close()
 
@@ -122,7 +119,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logrus.Infof("pdf file successfully written: %s", tempfile.Name())
+		logrus.Infof("file successfully written: %s", tempfile.Name())
 
 		if fileType == "pdf" {
 			go func() {
@@ -171,7 +168,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 					errChan <- fmt.Errorf("internal error in syllabus parsing")
 				}
 			}()
-			service.ParseSyllabus(extractedText, processResultChan, errChan)
+			service.ParseSyllabusWithOpenAI(extractedText, processResultChan, errChan)
 		}()
 
 		var response model.SyllabusData
@@ -184,6 +181,11 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		logrus.Infof("some response %v", response)
+
+		//TODO: need to rework this. just for quick testing purposes.
+
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
