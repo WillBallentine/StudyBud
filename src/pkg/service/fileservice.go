@@ -1,18 +1,19 @@
 package service
 
 import (
+	"archive/zip"
 	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"studybud/src/pkg/models"
 
 	"github.com/jdkato/prose/v2"
 	"github.com/ledongthuc/pdf"
-	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -92,11 +93,27 @@ func ExtractDocxTextAsync(path string, textChan chan<- string, errChan chan<- er
 
 	defer os.RemoveAll(tmpDir)
 
-	//TODO: this is where the docx is erroring out
-	err = copy.Copy(path, tmpDir)
+	tempPath := fmt.Sprintf("%s/temp.docx", tmpDir)
+	outfile, err := os.Create(tempPath)
 	if err != nil {
-		errChan <- fmt.Errorf("error unzipping docx file: %v", err)
-		logrus.Errorf("error unzipping docx file: %v", err)
+		errChan <- fmt.Errorf("error creating temp file: %v", err)
+		logrus.Errorf("error creating temp file: %v", err)
+		return
+	}
+
+	defer outfile.Close()
+
+	_, err = io.Copy(outfile, docxFile)
+	if err != nil {
+		errChan <- fmt.Errorf("error copying file: %v", err)
+		logrus.Errorf("error copying file: %v", err)
+		return
+	}
+
+	err = unzip(tempPath, tmpDir)
+	if err != nil {
+		errChan <- fmt.Errorf("error uzipping file: %v", err)
+		logrus.Errorf("error unzipping file: %v", err)
 		return
 	}
 
@@ -168,4 +185,46 @@ func extractSection(text string, startKeyword string, endKeyword string) string 
 	}
 
 	return remainingText
+}
+
+func unzip(src, dest string) error {
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return err
+	}
+
+	defer r.Close()
+
+	for _, f := range r.File {
+		fpath := filepath.Join(dest, f.Name)
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, os.ModePerm)
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return err
+		}
+
+		outfile, err := os.Create(fpath)
+
+		if err != nil {
+			return err
+		}
+
+		defer outfile.Close()
+
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+
+		defer rc.Close()
+
+		_, err = io.Copy(outfile, rc)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -102,14 +102,16 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		fileName := fmt.Sprintf("syllabus-*.%s", fileType)
 		fileReader.Seek(0, io.SeekStart)
 
-		tempfile, err := os.CreateTemp("", "syllabus-*.pdf")
+		tempfile, err := os.CreateTemp("", fileName)
 		if err != nil {
 			http.Error(w, "could not create temp file", http.StatusInternalServerError)
 			logrus.Errorf("could not create temp file: %v", err)
 			return
 		}
+		logrus.Infof("utils temp file: %v", tempfile)
 
 		defer tempfile.Close()
 
