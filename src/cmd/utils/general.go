@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"encoding/base64"
+	"math/rand"
 	"os"
 	"reflect"
 	"strconv"
@@ -62,4 +64,12 @@ func Read() Configuration {
 	logrus.Warnf("config with variables %v", config)
 
 	return config
+}
+
+func GenerateToken(length int) string {
+	bytes := make([]byte, length)
+	if _, err := rand.Read(bytes); err != nil {
+		logrus.Fatalf("failed to generate token: %v", err)
+	}
+	return base64.URLEncoding.EncodeToString(bytes)
 }

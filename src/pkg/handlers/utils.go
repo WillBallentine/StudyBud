@@ -186,10 +186,11 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		//TODO: need to rework this. just for quick testing purposes.
 
-
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
+
+	//TODO:need to implement Authorize function from session.go once user context and session state is fixed
 
 	tmpl, err := template.ParseFiles("web/templates/pages/upload.html")
 	if err != nil {
