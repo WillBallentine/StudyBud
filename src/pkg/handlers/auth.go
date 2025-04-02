@@ -108,13 +108,14 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		//TODO:user session state is not working. need to fix
 		mongo_repo.UpsertSessionInfo(user.ID, sessionToken, csrfToken, ctx)
 		session, _ := store.Get(r, "session-name")
-		session.Values["userid"] = user.ID
+		session.Values["email"] = user.Email
 		session.Options = &sessions.Options{
 			Path:     "/",
 			MaxAge:   86400,
 			HttpOnly: true,
 			Secure:   true,
 		}
+		r.Header.Add("X-CSRF-Token", csrfToken)
 		session.Save(r, w)
 
 		http.Redirect(w, r, "/", http.StatusSeeOther)

@@ -27,6 +27,7 @@
     <main>
         <h>Upload</h2>
             <form action="/upload" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <label for="File">Select a File:</label>
                 <input type="file" id="File" name="file"
                     accept="application/pdf,.doc,.docx,.xml,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"

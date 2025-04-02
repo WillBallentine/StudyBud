@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var AuthError = errors.New("Unauthorized")
@@ -15,32 +14,34 @@ var AuthError = errors.New("Unauthorized")
 func Authorize(r *http.Request) error {
 	session, err := store.Get(r, "session-name")
 	if err != nil {
+		logrus.Infof("session retrival err was not nil: %v", err)
 		return AuthError
 	}
 
-	userId := session.Values["userid"]
-	logrus.Info(userId)
+	email, ok := session.Values["email"].(string)
+	if !ok || email == "" {
+		logrus.Info("user email missing from session")
+		return AuthError
+	}
+
 	ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
 	defer ctxErr()
 
-	user, err := mongo_repo.GetUserById(userId.(primitive.ObjectID), ctx)
-	if err != nil {
+	user, exists := mongo_repo.GetUserByEmail(email, ctx)
+	if !exists {
 		logrus.Info("user not returning")
 		return AuthError
 	}
 
 	st, err := r.Cookie("session_token")
+	logrus.Infof("header token: %v", st)
 	if err != nil || st.Value == "" || st.Value != user.SessionToken {
+		logrus.Infof("db token: %v", user.SessionToken)
 		logrus.Info("session token error")
 		return AuthError
 	}
 
-	csrf := r.Header.Get("X-CSRF-Token")
-	if csrf != user.CSRFToken || csrf == "" {
-		logrus.Info("csrf token error")
-		return AuthError
-	}
-
+	logrus.Info("authorized")
 	return nil
 
 }
