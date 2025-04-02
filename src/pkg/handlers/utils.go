@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"studybud/src/cmd/utils"
 	model "studybud/src/pkg/models"
 	service "studybud/src/pkg/service"
 
@@ -48,7 +49,24 @@ func renderTemplate(w http.ResponseWriter, tmpl string) {
 }
 
 func UploadHandler(w http.ResponseWriter, r *http.Request) {
+
+	if err := Authorize(r); err != nil {
+		er := http.StatusUnauthorized
+		http.Error(w, "Unauthorized", er)
+		return
+	}
+
 	if r.Method == http.MethodPost {
+
+		csrfToken := r.FormValue("csrf_token")
+
+		session, _ := store.Get(r, "session-name")
+		expectedToken, _ := session.Values["csrf_token"].(string)
+
+		if csrfToken == "" || csrfToken != expectedToken {
+			http.Error(w, "unauthorized", http.StatusForbidden)
+			return
+		}
 
 		err := r.ParseMultipartForm(10 >> 20)
 		if err != nil {
@@ -185,10 +203,16 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		logrus.Infof("some response %v", response)
 
 		//TODO: need to rework this. just for quick testing purposes.
-
-
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
+	}
+
+	session, _ := store.Get(r, "session-name")
+	csrfToken, _ := session.Values["csrf_token"].(string)
+	if csrfToken == "" {
+		csrfToken = utils.GenerateToken(32)
+		session.Values["csrf_token"] = csrfToken
+		session.Save(r, w)
 	}
 
 	tmpl, err := template.ParseFiles("web/templates/pages/upload.html")
@@ -197,7 +221,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl.Execute(w, nil)
+	tmpl.Execute(w, map[string]string{"CSRFToken": csrfToken})
 }
 
 func getFileType(file io.Reader, fileTypeChan chan<- string, errChan chan<- error) {

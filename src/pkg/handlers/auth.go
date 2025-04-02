@@ -82,15 +82,40 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
 		defer ctxErr()
 		// Validate user
-		hashedPassword, exists := mongo_repo.GetUserByEmail(email, ctx)
-		if !exists || bcrypt.CompareHashAndPassword([]byte(hashedPassword.Password), []byte(password)) != nil {
+		user, exists := mongo_repo.GetUserByEmail(email, ctx)
+		if !exists || bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
 			//eventually some notification to user and retry logic. dont want to take to registration just for typos
 			http.Redirect(w, r, "/register", http.StatusSeeOther)
 		}
 
-		// Create session
-		session, _ := store.Get(r, "session")
-		session.Values["email"] = email
+		sessionToken := utils.GenerateToken(32)
+		csrfToken := utils.GenerateToken(32)
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "session_token",
+			Value:    sessionToken,
+			Expires:  time.Now().Add(24 * time.Hour),
+			HttpOnly: true,
+		})
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "csrf_token",
+			Value:    csrfToken,
+			Expires:  time.Now().Add(24 * time.Hour),
+			HttpOnly: false,
+		})
+
+		//TODO:user session state is not working. need to fix
+		mongo_repo.UpsertSessionInfo(user.ID, sessionToken, csrfToken, ctx)
+		session, _ := store.Get(r, "session-name")
+		session.Values["email"] = user.Email
+		session.Options = &sessions.Options{
+			Path:     "/",
+			MaxAge:   86400,
+			HttpOnly: true,
+			Secure:   true,
+		}
+		r.Header.Add("X-CSRF-Token", csrfToken)
 		session.Save(r, w)
 
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -107,7 +132,25 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 // this needs a full fleshing out. currently just clearing session data.
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "session")
-	delete(session.Values, "userId")
-	session.Save(r, w)
+	//TODO: logout is not implemented. need to solve this
+	if err := Authorize(r); err != nil {
+		er := http.StatusUnauthorized
+		http.Error(w, "Unauthorized", er)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HttpOnly: true,
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HttpOnly: false,
+	})
+
 }

@@ -13,6 +13,7 @@ import (
 
 type MongoRepository interface {
 	AddUser(user entity.User, ctx context.Context) (primitive.ObjectID, error)
+	UpsertSessionInfo(id string, st string, ct string, ctx context.Context) (bool, error)
 	GetUserById(oId primitive.ObjectID, ctx context.Context) (*entity.User, error)
 	GetUserByEmail(email string, ctx context.Context) (*entity.User, bool)
 	AddSyllabus(syll entity.SyllabusDataEntity, ctx context.Context) (primitive.ObjectID, error)
@@ -41,6 +42,31 @@ func (userRepo *mongoRepository) AddUser(user entity.User, ctx context.Context) 
 	} else {
 		return primitive.NilObjectID, err
 	}
+}
+
+func (userRepo *mongoRepository) UpsertSessionInfo(id string, st string, ct string, ctx context.Context) (bool, error) {
+	collection := userRepo.client.Database(userRepo.config.Database.DbName).Collection(userRepo.config.Database.Collection)
+	var updated bool
+
+	filter := bson.M{"_id": id}
+
+	update := bson.M{
+		"$set": bson.M{
+			"session_token": st,
+			"csrf_token":    ct,
+		},
+	}
+
+	_, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		updated = false
+		return updated, err
+	} else {
+		updated = true
+	}
+
+	return updated, nil
+
 }
 
 func (userRepo *mongoRepository) GetUserById(oId primitive.ObjectID, ctx context.Context) (*entity.User, error) {
