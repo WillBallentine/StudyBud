@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/sessions"
 	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -53,6 +54,9 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		Password:          string(hashedPassword),
 		School:            school,
 		SubscriptionLevel: "premium",
+		Syllabi:           []primitive.ObjectID{},
+		StudyPlans:        []primitive.ObjectID{},
+		Cohorts:           []primitive.ObjectID{},
 	}
 
 	// Register user
@@ -105,10 +109,10 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			HttpOnly: false,
 		})
 
-		//TODO:user session state is not working. need to fix
 		mongo_repo.UpsertSessionInfo(user.ID, sessionToken, csrfToken, ctx)
 		session, _ := store.Get(r, "session-name")
 		session.Values["email"] = user.Email
+		session.Values["userId"] = user.ID.Hex()
 		session.Options = &sessions.Options{
 			Path:     "/",
 			MaxAge:   86400,

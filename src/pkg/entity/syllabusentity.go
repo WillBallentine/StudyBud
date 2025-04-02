@@ -1,6 +1,9 @@
 package entity
 
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
 type SyllabusDataEntity struct {
+	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	CourseName    string             `bson:"course_name,omitempty" json:"course_name"`
 	CourseCode    string             `bson:"course_code" json:"course_code"`
 	Instructor    string             `bson:"professor_name" json:"professor_name"`
@@ -11,14 +14,16 @@ type SyllabusDataEntity struct {
 }
 
 type AssignmentEntity struct {
-	Title       string            `bson:"title" json:"title"`
-	Description string            `bson:"desc" json:"desc"`
-	DueDate     string            `bson:"due_date,omitempty" json:"due_date"`
-	Refs        []ReferenceEntity `bson:"related_texts,omitempty" json:"related_texts"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Title       string             `bson:"title" json:"title"`
+	Description string             `bson:"desc" json:"desc"`
+	DueDate     string             `bson:"due_date,omitempty" json:"due_date"`
+	Refs        []ReferenceEntity  `bson:"related_texts,omitempty" json:"related_texts"`
 }
 
 type ReferenceEntity struct {
-	Title  string `bson:"title" json:"title"`
-	Author string `bson:"author" json:"author"`
-	Link   string `bson:"link,omitempty" json:"link"`
+	ID     primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Title  string             `bson:"title" json:"title"`
+	Author string             `bson:"author" json:"author"`
+	Link   string             `bson:"link,omitempty" json:"link"`
 }

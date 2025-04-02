@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -13,8 +14,10 @@ import (
 	"studybud/src/cmd/utils"
 	model "studybud/src/pkg/models"
 	service "studybud/src/pkg/service"
+	"time"
 
 	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var Templates *template.Template
@@ -97,6 +100,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		textChan := make(chan string)
 		processResultChan := make(chan model.SyllabusData)
 		fileTypeChan := make(chan string)
+		processPlanChan := make(chan model.StudyPlan)
 		errChan := make(chan error)
 
 		go func() {
@@ -189,22 +193,50 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			service.ParseSyllabusWithOpenAI(extractedText, processResultChan, errChan)
 		}()
 
-		var response model.SyllabusData
+		var syllabus model.SyllabusData
 		select {
 		case result := <-processResultChan:
-			logrus.Info("result chan")
-			response = result
+			syllabus = result
+			userId, _ := primitive.ObjectIDFromHex(session.Values["userId"].(string))
+			ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
+			defer ctxErr()
+
+			mongo_repo.UpsertSyllabusId(userId, syllabus.ID, ctx)
 		case err := <-errChan:
 			logrus.Info("err chan")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		logrus.Infof("some response %v", response)
+		//TODO: process studyplan here
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logrus.Errorf("recovered from panic in syllabus parsing: %v", r)
+					errChan <- fmt.Errorf("internal error in syllabus parsing")
+				}
+			}()
+			service.ProcessStudyPlan(syllabus, processPlanChan, errChan)
+		}()
+
+		var studyPlan model.StudyPlan
+		select {
+		case result := <-processPlanChan:
+			studyPlan = result
+			userId, _ := primitive.ObjectIDFromHex(session.Values["userId"].(string))
+			ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
+			defer ctxErr()
+
+			mongo_repo.UpsertStudyPlanId(userId, studyPlan.ID, ctx)
+		case err := <-errChan:
+			logrus.Info("studyplan error chan")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		//TODO: need to rework this. just for quick testing purposes.
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(studyPlan)
 	}
 
 	session, _ := store.Get(r, "session-name")
