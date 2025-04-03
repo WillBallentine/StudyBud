@@ -16,12 +16,6 @@
             <a href="/login">Login</a>
             <a href="/register">Register</a>
         </nav>
-        <script>
-            function navigate(event, url) {
-                event.preventDefautl();
-                window.location.href = url;
-            }
-        </script>
     </header>
     <main>
         {{ template "content" .}}

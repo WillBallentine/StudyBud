@@ -37,7 +37,7 @@ type RecurrenceRule struct {
 }
 
 type ScheduleRules struct {
-	PreferredStudyTimes []StudyTimeRange `bson:"preferred_study_times,omitempty"`
+	PreferredStudyTimes []StudyTimeRange `bson:"preferred_study_times,omitempty" json:"preferred_study_times,omitempty"`
 	MaxDailyStudyHours  int              `bson:"max_daily_study_hours,omitempty" json:"max_daily_study_hours,omitempty"`
 	BreakDuration       string           `bson:"break_duration,omitempty" json:"break_duration,omitempty"`
 }

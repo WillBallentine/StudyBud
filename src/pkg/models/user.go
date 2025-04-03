@@ -13,4 +13,12 @@ type User struct {
 	Cohorts           []primitive.ObjectID `json:"cohorts"`
 	Syllabi           []primitive.ObjectID `json:"syllabi"`
 	StudyPlans        []primitive.ObjectID `json:"study_plans"`
+	UserPreferences   UserPreferences      `json:"user_preferences"`
+}
+
+type UserPreferences struct {
+	ScheduleRules      ScheduleRules      `bson:"schedule_rules" json:"schedule_rules"`
+	EmailNotifications bool               `bson:"email_notifications" json:"email_notifications"`
+	TextNotifications  bool               `bson:"text_notifications" json:"text_notifications"`
+	DefaultClass       primitive.ObjectID `bson:"default_class" json:"default_class"`
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strconv"
 	"time"
 
 	"studybud/src/cmd/utils"
@@ -37,6 +38,19 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	firstname := r.FormValue("firstname")
 	lastname := r.FormValue("lastname")
 	school := r.FormValue("school")
+	maxHours, convErr := strconv.Atoi(r.FormValue("maxHours"))
+	if convErr != nil {
+		maxHours = 5
+	}
+	breakDuration := r.FormValue("break")
+	emailNot, eFalse := strconv.ParseBool(r.FormValue("emailNot"))
+	if eFalse != nil {
+		emailNot = false
+	}
+	textNot, tFalse := strconv.ParseBool(r.FormValue("textNot"))
+	if tFalse != nil {
+		textNot = false
+	}
 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -46,6 +60,31 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var newUser *entity.User
+	var prefs *entity.UserPreferencesEntity
+	var schrules entity.ScheduleRulesEntity
+	var stweek []entity.StudyTimeRangeEntity
+	var day entity.StudyTimeRangeEntity
+
+	//need to find a way to take in each day of the week data and add to this slice
+	day = entity.StudyTimeRangeEntity{
+		DayOfWeek: "monday",
+		StartTime: "12",
+		EndTime:   "15",
+	}
+
+	stweek = append(stweek, day)
+
+	schrules = entity.ScheduleRulesEntity{
+		PreferredStudyTimes: stweek,
+		MaxDailyStudyHours:  maxHours,
+		BreakDuration:       breakDuration,
+	}
+
+	prefs = &entity.UserPreferencesEntity{
+		ScheduleRules:      schrules,
+		EmailNotifications: emailNot,
+		TextNotifications:  textNot,
+	}
 
 	newUser = &entity.User{
 		FirstName:         firstname,
@@ -57,6 +96,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		Syllabi:           []primitive.ObjectID{},
 		StudyPlans:        []primitive.ObjectID{},
 		Cohorts:           []primitive.ObjectID{},
+		UserPreferences:   *prefs,
 	}
 
 	// Register user
