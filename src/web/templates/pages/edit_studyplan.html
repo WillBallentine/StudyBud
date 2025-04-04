@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Confirm Study Plan</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <header>
+        <h1>StudyBud</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/logout">Logout</a>
+        </nav>
+    </header>
+
+    <main class="edit-studyplan">
+        <h2>Edit Your Study Plan</h2>
+        <form action="/save-studyplan" method="POST">
+            <input type="hidden" name="plan_id" value="{{.StudyPlan.ID}}">
+            {{range $i, $block := .StudyPlan.StudyBlocks}}
+            <fieldset>
+                <legend>Study Block {{$i}}</legend>
+                <input type="hidden" name="block_ids" value="{{.ID}}">
+                <label>Title:
+                    <input type="text" name="titles" value="{{.Title}}">
+                </label><br>
+                <label>Description:
+                    <textarea name="descriptions">{{.Description}}</textarea>
+                </label><br>
+                <label>Start Date:
+                    <input type="date" name="start_dates" value="{{.StartDate}}">
+                </label><br>
+                <label>Estimated Time:
+                    <input type="text" name="estimated_times" value="{{.EstimatedTime}}">
+                </label><br>
+                <label>Completed:
+                    <input type="checkbox" name="completed" {{if .Completed}}checked{{end}}>
+                </label><br>
+            </fieldset>
+            <hr>
+            {{end}}
+            <button type="submit">Save Study Plan</button>
+        </form>
+    </main>
+</body>
+
+</html>

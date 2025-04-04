@@ -19,6 +19,7 @@ type MongoRepository interface {
 	GetUserByEmail(email string, ctx context.Context) (*entity.User, bool)
 	AddSyllabus(syll entity.SyllabusDataEntity, ctx context.Context) (primitive.ObjectID, error)
 	AddStudyPlan(plan model.StudyPlan, ctx context.Context) (primitive.ObjectID, error)
+	GetStudyPlanByID(oId primitive.ObjectID, ctx context.Context) (*model.StudyPlan, error)
 	UpsertSyllabusId(userId primitive.ObjectID, syllId primitive.ObjectID, ctx context.Context) (bool, error)
 	UpsertStudyPlanId(userId primitive.ObjectID, planId primitive.ObjectID, ctx context.Context) (bool, error)
 }
@@ -183,4 +184,17 @@ func (planRepo *mongoRepository) AddStudyPlan(plan model.StudyPlan, ctx context.
 	} else {
 		return primitive.NilObjectID, err
 	}
+}
+
+func (planRepo *mongoRepository) GetStudyPlanByID(oId primitive.ObjectID, ctx context.Context) (*model.StudyPlan, error) {
+
+	collection := planRepo.client.Database(planRepo.config.Database.DbName).Collection(planRepo.config.Database.Collection)
+
+	filter := bson.D{primitive.E{Key: "_id", Value: oId}}
+
+	var plan *model.StudyPlan
+
+	collection.FindOne(ctx, filter).Decode(&plan)
+
+	return plan, nil
 }

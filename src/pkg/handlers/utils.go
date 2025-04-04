@@ -3,16 +3,17 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"studybud/src/cmd/utils"
 	model "studybud/src/pkg/models"
+	"studybud/src/pkg/mongodb"
 	service "studybud/src/pkg/service"
 	"time"
 
@@ -21,6 +22,8 @@ import (
 )
 
 var Templates *template.Template
+var mongo_plan_repo = mongodb.Initialize(config, "plans")
+var mongo_user_repo = mongodb.Initialize(config, "users")
 
 func LoadTemplates() {
 	var err error
@@ -201,14 +204,13 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
 			defer ctxErr()
 
-			mongo_repo.UpsertSyllabusId(userId, syllabus.ID, ctx)
+			mongo_user_repo.UpsertSyllabusId(userId, syllabus.ID, ctx)
 		case err := <-errChan:
 			logrus.Info("err chan")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		//TODO: process studyplan here
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -227,16 +229,29 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			ctx, ctxErr := context.WithTimeout(context.TODO(), time.Duration(config.App.Timeout)*time.Second)
 			defer ctxErr()
 
-			mongo_repo.UpsertStudyPlanId(userId, studyPlan.ID, ctx)
+			mongo_user_repo.UpsertStudyPlanId(userId, studyPlan.ID, ctx)
 		case err := <-errChan:
 			logrus.Info("studyplan error chan")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		//TODO: need to rework this. just for quick testing purposes.
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(studyPlan)
+		tmple, err := template.ParseFiles("web/templates/pages/confirm.html")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		data := struct {
+			CSRFToken string
+			StudyPlan model.StudyPlan
+		}{
+			CSRFToken: csrfToken,
+			StudyPlan: studyPlan,
+		}
+
+		tmple.Execute(w, data)
+		return
 	}
 
 	session, _ := store.Get(r, "session-name")
@@ -254,6 +269,117 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl.Execute(w, map[string]string{"CSRFToken": csrfToken})
+}
+
+func EditStudyPlanHandler(w http.ResponseWriter, r *http.Request) {
+	if err := Authorize(r); err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	csrfToken := r.FormValue("csrf_token")
+	session, _ := store.Get(r, "session-name")
+	expectedToken, _ := session.Values["csrf_token"].(string)
+	if csrfToken != expectedToken {
+		http.Error(w, "CSRF token mismatch", http.StatusForbidden)
+		return
+	}
+
+	planID := r.FormValue("plan_id")
+
+	re := regexp.MustCompile(`^ObjectID\("(.*)"\)$`)
+	matches := re.FindStringSubmatch(planID)
+
+	if len(matches) != 2 {
+		http.Error(w, "Invalid plan ID format", http.StatusBadRequest)
+		return
+	}
+
+	cleanedPlanID := matches[1]
+
+	objID, err := primitive.ObjectIDFromHex(cleanedPlanID)
+	if err != nil {
+		logrus.Errorf("Error converting planId to ObjectID: %v", err)
+		http.Error(w, "Invalid plan ID", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.App.Timeout)*time.Second)
+	defer cancel()
+
+	plan, err := mongo_plan_repo.GetStudyPlanByID(objID, ctx)
+	if err != nil {
+		http.Error(w, "Study plan not found", http.StatusNotFound)
+		return
+	}
+
+	tmpl, err := template.ParseFiles("web/templates/pages/edit_studyplan.html")
+	if err != nil {
+		http.Error(w, "Template parse error", http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		CSRFToken string
+		StudyPlan *model.StudyPlan
+	}{
+		CSRFToken: csrfToken,
+		StudyPlan: plan,
+	}
+
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		logrus.Errorf("error executing template: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+	}
+}
+
+func SaveStudyPlanHandler(w http.ResponseWriter, r *http.Request) {
+	if err := Authorize(r); err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	csrfToken := r.FormValue("csrf_token")
+	session, _ := store.Get(r, "session-name")
+	expectedToken, _ := session.Values["csrf_token"].(string)
+	if csrfToken != expectedToken {
+		http.Error(w, "CSRF token mismatch", http.StatusForbidden)
+		return
+	}
+
+	planID := r.FormValue("plan_id")
+	objID, err := primitive.ObjectIDFromHex(planID)
+	logrus.Infof("planId: %v", planID)
+	logrus.Infof("objId: %v", objID)
+	if err != nil {
+		http.Error(w, "Invalid plan ID", http.StatusBadRequest)
+		return
+	}
+	// You would parse all fields from the form and update them into the StudyPlan object.
+	// Here’s a simplified example:
+	//updatedPlan := model.StudyPlan{
+	//	ID: objID,
+	// You'd fill in all fields based on form values
+	// StudyBlocks: ...
+	//}
+
+	//ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.App.Timeout)*time.Second)
+	//defer cancel()
+
+	//err = mongo_repo.UpdateStudyPlan(updatedPlan, ctx)
+	//if err != nil {
+	//	http.Error(w, "Failed to update study plan", http.StatusInternalServerError)
+	//return
+	//}
+
+	http.Redirect(w, r, "/upload", http.StatusSeeOther)
 }
 
 func getFileType(file io.Reader, fileTypeChan chan<- string, errChan chan<- error) {

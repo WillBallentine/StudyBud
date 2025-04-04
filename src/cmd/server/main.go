@@ -36,6 +36,8 @@ func main() {
 	http.HandleFunc("/login", handlers.LoginHandler)
 	http.HandleFunc("/logout", handlers.LogoutHandler)
 	http.HandleFunc("/upload", handlers.UploadHandler)
+	http.HandleFunc("/edit-studyplan", handlers.EditStudyPlanHandler)
+	http.HandleFunc("/save-studyplan", handlers.SaveStudyPlanHandler)
 	http.HandleFunc("/", handlers.HomeHandler)
 
 	port := ":8080"

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Confirm Study Plan</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <header>
+        <h1>StudyBud</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/logout">Logout</a>
+        </nav>
+    </header>
+
+    <main class="confirm-page">
+
+        <h2>Generated Study Plan</h2>
+        <p><strong>Course:</strong> {{ .StudyPlan.CourseCode }} ({{ .StudyPlan.Semester }})</p>
+        {{ range .StudyPlan.StudyBlocks }}
+        <div class="study-block">
+            <h3>{{ .Title }}</h3>
+            <p><strong>Description:</strong> {{ .Description }}</p>
+            <p><strong>Estimated Time:</strong> {{ .EstimatedTime }}</p>
+            {{ if .Refs }}
+            <p><strong>Related Texts:</strong></p>
+            <ul>
+                {{ range .Refs }}
+                <li><strong>{{ .Title }}</strong> by {{ .Author }}</li>
+                {{ end }}
+            </ul>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        </div>
+        <h2>Confirm Your Study Plan</h2>
+
+        <form action="/edit-studyplan" method="POST">
+            <input type="hidden" name="plan_id" value="{{.StudyPlan.ID}}">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+            <button type="submit">Edit Plan</button>
+        </form>
+
+        <form action="/save-studyplan" method="POST">
+            <input type="hidden" name="plan_id" value="{{.StudyPlan.ID}}">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+            <button type="submit">Confirm and Save</button>
+        </form>
+    </main>
+</body>
+
+</html>

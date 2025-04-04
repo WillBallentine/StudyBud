@@ -156,7 +156,7 @@ func ParseSyllabusWithOpenAI(text string, resultChan chan<- model.SyllabusData, 
 		- Professor Name
 		- Course Title
 		- Course Code
-		- Assignments (with due dates and description if available. if there are any related texts for the assignment, add their title if available)
+		- Assignments (with due dates and description if available. if there is a description, add it here exactly as it appears. do not summarize it. if there are any related texts for the assignment, add their title if available)
 		- Required Textbooks (titles & authors. please include a link if available)
 		- School
 		- Semester
@@ -206,6 +206,7 @@ func ParseSyllabusWithOpenAI(text string, resultChan chan<- model.SyllabusData, 
 	resultChan <- syllabusData
 }
 
+// TODO:	NEED TO PASS STUDENT STUDY PRFERENCES TO THIS PROMPT. ALSO NEED TO ADJUST STUDYPLAN MODEL TO BETTER ACCOMODATE A WEEK/SEMESTER PLAN
 func ProcessStudyPlan(syllabusData model.SyllabusData, resultChan chan<- model.StudyPlan, errChan chan<- error) {
 	client := resty.New()
 
@@ -220,7 +221,7 @@ func ProcessStudyPlan(syllabusData model.SyllabusData, resultChan chan<- model.S
     "study_blocks": [
         {
             "title": "Study Block Title",
-            "description": "Description of the study block",
+            "description": "Description of the study block (do not sumarize. use the exact description given)",
             "start_date": "YYYY-MM-DD", // The date when the study block starts
             "due_date": "YYYY-MM-DD",   // The due date for this block (e.g., assignment due date)
             "priority": 1,              // Priority (1 = high, 2 = medium, 3 = low)
@@ -288,7 +289,6 @@ Please use this format for all study blocks.ata, prepare for me a studyplan.
 		logrus.Errorf("error sending to plan to openai: %v", err)
 	}
 
-	logrus.Infof("study plan response: %v", resp)
 	var openAIResponseData, unpackErr = extractOpenAIResponse(resp, err)
 
 	if unpackErr != nil {
@@ -467,7 +467,6 @@ func extractOpenAIResponse(resp *resty.Response, err error) (string, error) {
 	}
 
 	cleanedjson := extractJSON(content)
-	logrus.Infof("cleaned json: %v", cleanedjson)
 
 	return cleanedjson, nil
 }
